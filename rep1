@@ -1,0 +1,70 @@
+from __future__ import unicode_literals
+import os
+from openpyxl import load_workbook
+import win32com.client
+from datetime import datetime
+from multiprocessing import Pool
+import csv
+
+def convert_and_merge(entry):
+    try:
+        o = win32com.client.Dispatch("Excel.Application")
+        o.Visible = False
+
+        filename_input = entry
+        output = entry.replace('.xls', '.csv')
+
+        wb = o.Workbooks.Open(filename_input)
+        wb.SaveAs(output, FileFormat=6)  # FileFormat=6 corresponds to CSV format
+        wb.Close(True)
+        o.Quit()
+
+        # Open converted CSV file to read the data
+        with open(output, 'r') as csv_file:
+            csv_reader = csv.reader(csv_file)
+            rows = list(csv_reader)
+
+        os.remove(output)  # Remove the temporary CSV file
+
+        return rows
+    except Exception as e:
+        print(f"Error processing file {entry}: {e}")
+        return []
+
+if __name__ == '__main__':
+    try:
+        # Get today's date
+        today = datetime.today()
+
+        # Extract day and month as integers
+        day = today.day
+        month = today.month
+
+        # Convert day and month to strings with zero padding
+        day_str = str(day).zfill(2)
+        month_str = str(month).zfill(2)
+        k=month_str+day_str
+        # Construct the merged file name
+        merged_file = f"{day_str}{month_str}_TVR.csv"
+
+        # Directory containing the files
+        directory = r'CLASSIFIED'
+
+        # Asama 2 - Find files containing 'TVR_PCI' and add them to entries
+# Asama 2 - Find files containing specific substrings and add them to entries
+        entries = []
+        substrings = ["file1", "file2", "file3", "file4"]
+        for filename in os.listdir(directory):
+            if k in filename:
+                if any(substring in filename for substring in substrings):
+                    entries.append(os.path.join(directory, filename))
+        print(entries)
+
+        with Pool() as pool:
+            results = pool.map(convert_and_merge, entries)
+            with open(merged_file, 'w', newline='') as csv_file:
+                csv_writer = csv.writer(csv_file)
+                for rows in results:
+                    csv_writer.writerows(rows)
+    except Exception as e:
+        print(f"An error occurred: {e}")
